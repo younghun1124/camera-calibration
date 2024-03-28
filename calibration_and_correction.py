@@ -54,6 +54,44 @@ def calib_camera_from_chessboard(images, board_pattern, board_cellsize, K=None, 
     # Calibrate the camera
     return cv.calibrateCamera(obj_points, img_points, gray.shape[::-1], K, dist_coeff, flags=calib_flags)
 
+def disortion_correction(video_file,K,dist_coeff):
+    
+# Open a video
+    video = cv.VideoCapture(video_file)
+    assert video.isOpened(), 'Cannot read the given input, ' + video_file
+
+    # Run distortion correction
+    show_rectify = True
+    map1, map2 = None, None
+    while True:
+        # Read an image from the video
+        valid, img = video.read()
+        if not valid:
+            break
+
+        # Rectify geometric distortion (Alternative: `cv.undistort()`)
+        info = "Original"
+        if show_rectify:
+            if map1 is None or map2 is None:
+                map1, map2 = cv.initUndistortRectifyMap(K, dist_coeff, None, None, (img.shape[1], img.shape[0]), cv.CV_32FC1)
+            img = cv.remap(img, map1, map2, interpolation=cv.INTER_LINEAR)
+            info = "Rectified"
+        cv.putText(img, info, (10, 25), cv.FONT_HERSHEY_DUPLEX, 0.6, (0, 255, 0))
+
+        # Show the image and process the key event
+        cv.imshow("Geometric Distortion Correction", img)
+        key = cv.waitKey(10)
+        if key == ord(' '):     # Space: Pause
+            key = cv.waitKey()
+        if key == 27:           # ESC: Exit
+            break
+        elif key == ord('\t'):  # Tab: Toggle the mode
+            show_rectify = not show_rectify
+
+    video.release()
+    cv.destroyAllWindows()
+
+
 if __name__ == '__main__': 
     video_file = 'chessboard.mp4'
     board_pattern = (10, 7)
@@ -63,6 +101,7 @@ if __name__ == '__main__':
     assert len(img_select) > 0, 'There is no selected images!'
     rms, K, dist_coeff, rvecs, tvecs = calib_camera_from_chessboard(img_select, board_pattern, board_cellsize)
 
+    disortion_correction(video_file,K,dist_coeff)
     # Print calibration results
     print('## Camera Calibration Results')
     print(f'* The number of selected images = {len(img_select)}')
